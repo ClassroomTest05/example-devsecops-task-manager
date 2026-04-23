@@ -11,13 +11,11 @@ jobs:
     name: "Security Scanning"
     runs-on: ubuntu-latest
     steps:
-	    # Download kode terbaru ke runner
       - name: Checkout kode
         uses: actions/checkout@v4
         with:
           fetch-depth: 0  # Diperlukan Gitleaks scan riwayat git
 
-			# Setup Java 17 di runner
       - name: Setup Java 17
 	      uses: actions/setup-java@v4
         with:
@@ -25,14 +23,11 @@ jobs:
           distribution: 'temurin'
           cache: maven
 
-      # SAST: Cari bug di kode Java (SQL Injection, XSS, dll)
       - name: "SAST - Semgrep"
         uses: semgrep/semgrep-action@v1
         with: 
           config: p/java # Ruleset khusus untuk Java
 
-      # SCA: Scan pom.xml - TRIVY, bukan OWASP!
-      # Tidak kena rate limit 429, selesai 30-60 detik
       - name: "SCA - Trivy Filesystem Scan"
         uses: aquasecurity/trivy-action@master
         with:
@@ -60,7 +55,6 @@ jobs:
           name: sca-report
           path: trivy-fs-report.html
 			
-      # Secret Scan: Cari password/API key yang ter-commit
        - name: "Secret Scan - Gitleaks"
          run: |
           curl -sSfL https://github.com/gitleaks/gitleaks/releases/download/v8.24.3/gitleaks_8.24.3_linux_x64.tar.gz \
@@ -74,10 +68,6 @@ jobs:
             --report-format=sarif \
             --report-path=gitleaks-results.sarif
 
-  # ═══════════════════════════════════════════════════════
-  # JOB 2 — BUILD & TEST
-  # Build dan jalankan unit test (butuh JOB 1 lolos dulu)
-  # ═══════════════════════════════════════════════════════
 	build-and-test:
     name: "Build & Unit Test"
     runs-on: ubuntu-latest
@@ -92,6 +82,5 @@ jobs:
           distribution: 'temurin' 
           cache: maven 
       
-      # Test pakai H2 in-memory — tidak perlu MySQL di pipeline
       - name: "Build & Unit Test"
         run: mvn clean verify -Dspring.profiles.active=test
