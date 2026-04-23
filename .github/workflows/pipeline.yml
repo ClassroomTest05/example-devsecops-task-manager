@@ -6,10 +6,7 @@ on:
     branches: [ main ]
 
 jobs:
-	# ═══════════════════════════════════════════════════════
-  # JOB 1 — SECURITY SCAN
-  # Cari kerentanan SEBELUM kode masuk ke build
-  # ═══════════════════════════════════════════════════════
+  
   security-scan:
     name: "Security Scanning"
     runs-on: ubuntu-latest
@@ -17,7 +14,8 @@ jobs:
 	    # Download kode terbaru ke runner
       - name: Checkout kode
         uses: actions/checkout@v4
-        with: { fetch-depth: 0 }  # Diperlukan Gitleaks scan riwayat git
+        with:
+          fetch-depth: 0  # Diperlukan Gitleaks scan riwayat git
 
 			# Setup Java 17 di runner
       - name: Setup Java 17
@@ -30,7 +28,8 @@ jobs:
       # SAST: Cari bug di kode Java (SQL Injection, XSS, dll)
       - name: "SAST - Semgrep"
         uses: semgrep/semgrep-action@v1
-        with: { config: p/java } # Ruleset khusus untuk Java
+        with: 
+          config: p/java # Ruleset khusus untuk Java
 
       # SCA: Scan pom.xml - TRIVY, bukan OWASP!
       # Tidak kena rate limit 429, selesai 30-60 detik
