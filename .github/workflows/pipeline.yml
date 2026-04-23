@@ -1,4 +1,5 @@
 name: DevSecOps CI/CD Pipeline
+
 on:
   push:
     branches: [ main, develop ]
@@ -6,7 +7,7 @@ on:
     branches: [ main ]
 
 jobs:
-  
+
   security-scan:
     name: "Security Scanning"
     runs-on: ubuntu-latest
@@ -14,9 +15,9 @@ jobs:
       - name: Checkout kode
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # Diperlukan Gitleaks scan riwayat git
+          fetch-depth: 0
 
-      - name: "Setup Java 17"
+      - name: Setup Java 17
         uses: actions/setup-java@v4
         with:
           java-version: "17"
@@ -25,8 +26,8 @@ jobs:
 
       - name: "SAST - Semgrep"
         uses: semgrep/semgrep-action@v1
-        with: 
-          config: p/java # Ruleset khusus untuk Java
+        with:
+          config: p/java
 
       - name: "SCA - Trivy Filesystem Scan"
         uses: aquasecurity/trivy-action@master
@@ -37,8 +38,8 @@ jobs:
           exit-code: "1"
           ignore-unfixed: true
           severity: "CRITICAL"
-			
-			- name: "SCA - Generate Report"
+
+      - name: "SCA - Generate Report"
         uses: aquasecurity/trivy-action@master
         if: always()
         with:
@@ -48,13 +49,13 @@ jobs:
           template: "contrib/html.tpl"
           output: "trivy-fs-report.html"
 
-      - name: "Upload SCA report"
+      - name: Upload SCA report
         uses: actions/upload-artifact@v4
         if: always()
         with:
           name: sca-report
           path: trivy-fs-report.html
-			
+
       - name: "Secret Scan - Gitleaks"
         run: |
           curl -sSfL https://github.com/gitleaks/gitleaks/releases/download/v8.24.3/gitleaks_8.24.3_linux_x64.tar.gz \
@@ -68,19 +69,26 @@ jobs:
             --report-format=sarif \
             --report-path=gitleaks-results.sarif
 
-	build-and-test:
+  build-and-test:
     name: "Build & Unit Test"
     runs-on: ubuntu-latest
-    needs: security-scan    # HANYA jalan jika Job 1 berhasil
+    needs: security-scan
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Setup Java 17
         uses: actions/setup-java@v4
-        with: 
-          java-version: "17" 
-          distribution: "temurin" 
-          cache: maven 
-      
+        with:
+          java-version: "17"
+          distribution: "temurin"
+          cache: maven
+
       - name: "Build & Unit Test"
         run: mvn clean verify -Dspring.profiles.active=test
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results
+          path: target/surefire-reports/
