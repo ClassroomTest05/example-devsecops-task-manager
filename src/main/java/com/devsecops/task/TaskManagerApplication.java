@@ -13,7 +13,6 @@ public class TaskManagerApplication {
           Task Manager API - DevSecOps Training
           Berjalan di: http://localhost:8080
           Health: GET /actuator/health
-          Docs:   GET /swagger-ui.html
         ================================================
 
         """);
