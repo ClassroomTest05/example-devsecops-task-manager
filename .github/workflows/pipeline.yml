@@ -92,3 +92,82 @@ jobs:
         with:
           name: test-results
           path: target/surefire-reports/
+
+  container-scan:
+    name: "Container Security Scan"
+    runs-on: ubuntu-latest
+    needs: build-and-test
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Java 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: "17"
+          distribution: "temurin"
+          cache: maven
+
+      - name: Build JAR
+        run: mvn clean package -DskipTests -q
+
+      # Generate dynamic tags berdasarkan git tag atau branch
+      - name: Docker Metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ vars.DOCKERHUB_USERNAME }}/task-manager
+          tags: |
+            # Jika push git tag v1.2.3 → buat tag: 1.2.3, 1.2, 1, latest
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            # Jika push ke branch → buat tag: main-abc1234
+            type=ref,event=branch,suffix=-{{sha}}
+            # Selalu buat tag sha pendek untuk traceability
+            type=sha,prefix=sha-
+
+      - name: Build Docker Image
+        run: docker build -t task-manager:local .
+
+      - name: "Container Scan - Trivy"
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: "task-manager:local"
+          format: "table"
+          exit-code: "1"
+          ignore-unfixed: true
+          vuln-type: "os,library"
+          severity: "CRITICAL"
+
+      - name: "Container Scan - Generate Report"
+        uses: aquasecurity/trivy-action@master
+        if: always()
+        with:
+          image-ref: "task-manager:local"
+          format: "template"
+          template: "contrib/html.tpl"
+          output: "trivy-image-report.html"
+
+      - name: Upload container scan report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: container-scan-report
+          path: trivy-image-report.html
+
+      # Push ke Docker Hub hanya jika trigger dari git tag (release resmi)
+      - name: Login to Docker Hub
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: docker/login-action@v3
+        with:
+          username: ${{ vars.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Push Docker Image
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
